@@ -9,10 +9,6 @@ require 'fluent/mixin/plaintextformatter'
 # require 'fluent/plugin/bigquery/load_request_body_wrapper'
 
 module Fluent
-  ### TODO: error classes for each api error responses
-  # class BigQueryAPIError < StandardError
-  # end
-
   class BigQueryOutput < BufferedOutput
     Fluent::Plugin.register_output('bigquery', self)
 
