@@ -37,13 +37,13 @@ module Fluent::BigQueryPlugin
     end
 
     def fetch_schema(table)
-      response = access_api(
+      result = access_api(
         api_method: bigquery.tables.get,
         parameters: {
           'tableId' => table
         }
       )
-      JSON.parse(response.body)['schema']['fields']
+      JSON.parse(result.body)['schema']['fields']
     end
 
     def load
@@ -62,19 +62,6 @@ module Fluent::BigQueryPlugin
       result
     end
 
-    def handle_error(result)
-      @client = nil # clear cashed client when errors occur
-      error =
-        case result.status
-        when 404      then NotFound
-        when 409      then Conflict
-        when 400..499 then ClientError
-        when 500..599 then ServerError
-        else UnexpectedError
-        end
-      fail error, result.error_message
-    end
-
     def bigquery
       # TODO: refresh with specified expiration
       @bigquery ||= client.discovered_api('bigquery', 'v2')
@@ -91,6 +78,19 @@ module Fluent::BigQueryPlugin
         @expiration = Time.now + 1800
       end
       @client
+    end
+
+    def handle_error(result)
+      @client = nil # clear cashed client when errors occur
+      error =
+        case result.status
+        when 404      then NotFound
+        when 409      then Conflict
+        when 400..499 then ClientError
+        when 500..599 then ServerError
+        else UnexpectedError
+        end
+      fail error, result.error_message
     end
 
     def expired?
