@@ -11,7 +11,7 @@ module Fluent::BigQueryPlugin
     end
 
     def create_table(name, schema)
-      access_api(
+      result = access_api(
         api_method: bigquery.tables.insert,
         body_object: {
           'tableReference' => {
@@ -22,10 +22,11 @@ module Fluent::BigQueryPlugin
           }
         }
       )
+      handle_error(result) if result.error?
     end
 
     def insert(table, rows)
-      access_api(
+      result = access_api(
         api_method: bigquery.tabledata.insert_all,
         parameters: {
           'tableId' => table
@@ -34,6 +35,7 @@ module Fluent::BigQueryPlugin
           'rows' => rows
         }
       )
+      handle_error(result) if result.error?
     end
 
     def fetch_schema(table)
@@ -43,6 +45,7 @@ module Fluent::BigQueryPlugin
           'tableId' => table
         }
       )
+      handle_error(result) if result.error?
       JSON.parse(result.body)['schema']['fields']
     end
 
@@ -57,27 +60,12 @@ module Fluent::BigQueryPlugin
       params[:parameters] ||= {}
       params[:parameters]['projectId'] ||= @project
       params[:parameters]['datasetId'] ||= @dataset
-      result = client.execute(params)
-      handle_error(result) if result.error?
-      result
+      client.execute(params)
     end
 
     def bigquery
       # TODO: refresh with specified expiration
       @bigquery ||= client.discovered_api('bigquery', 'v2')
-    end
-
-    def client
-      @client = nil if expired?
-      unless @client
-        @client = Google::APIClient.new(
-          application_name: 'Fluentd BigQuery plugin',
-          application_version: Fluent::BigQueryPlugin::VERSION
-        )
-        authorize_client
-        @expiration = Time.now + 1800
-      end
-      @client
     end
 
     def handle_error(result)
@@ -93,7 +81,20 @@ module Fluent::BigQueryPlugin
       fail error, result.error_message
     end
 
-    def expired?
+    def client
+      @client = nil if expired?
+      unless @client
+        @client = Google::APIClient.new(
+          application_name: 'Fluentd BigQuery plugin',
+          application_version: Fluent::BigQueryPlugin::VERSION
+        )
+        authorize_client
+        @expiration = Time.now + 1800
+      end
+      @client
+    end
+
+   def expired?
       @expiration && @expiration < Time.now
     end
 
